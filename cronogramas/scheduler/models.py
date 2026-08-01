@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 
@@ -28,6 +28,9 @@ class Assignment:
 class Config:
     days: list[str]
     periods: list[str]
+    # Franjas "HH:MM-HH:MM" que son recreo: se muestran en la grilla de salida
+    # pero nunca se usan para agendar clases (no forman parte de `slots`).
+    recesses: list[str] = field(default_factory=list)
 
     @property
     def slots(self) -> list[Slot]:

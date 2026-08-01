@@ -22,6 +22,17 @@ python generar_plantilla.py plantilla.xlsx
 Esto crea `plantilla.xlsx` con datos de ejemplo y una hoja de instrucciones.
 Completala con tus propios datos (o editá el ejemplo) antes de seguir.
 
+Por defecto arma módulos de 45 minutos con recreos después del 2do y 4to
+módulo, pero se puede ajustar todo por línea de comandos:
+
+```bash
+python generar_plantilla.py plantilla.xlsx \
+    --duracion 60 \      # minutos por módulo (45, 60, lo que uses)
+    --modulos 5 \        # cantidad de módulos por día
+    --inicio 08:00 \     # hora del primer módulo
+    --recreo 2:20        # recreo de 20' después del 2do módulo (repetible)
+```
+
 ### 2. Generar el cronograma
 
 ```bash
@@ -39,14 +50,20 @@ python main.py plantilla.xlsx cronograma.xlsx
 
 ### Hoja `Config`
 
-| Dias   | Periodos     |
-|--------|--------------|
-| Lunes  | 08:00-09:00  |
-| Martes | 09:00-10:00  |
-| ...    | ...          |
+| Dias   | Periodos     | Recreos      |
+|--------|--------------|--------------|
+| Lunes  | 08:00-08:45  | 09:30-09:45  |
+| Martes | 08:45-09:30  |              |
+| ...    | 09:45-10:30  |              |
 
-Las dos columnas son independientes: no hace falta que tengan la misma
-cantidad de filas.
+Las tres columnas son independientes: no hace falta que tengan la misma
+cantidad de filas. `Periodos` puede ser cualquier franja horaria — módulos de
+45', de 60', o lo que uses en tu centro — vos elegís el texto.
+
+`Recreos` (opcional) son franjas que se muestran en el cronograma final como
+una fila "RECREO" pero **nunca reciben clases**: no forman parte de los
+horarios disponibles para el armado. Se pueden cargar a mano o generar
+automáticamente con `generar_plantilla.py --recreo` (ver arriba).
 
 ### Hoja `Asignaciones`
 
@@ -54,9 +71,11 @@ cantidad de filas.
 |--------|-----------|-------------|-------------|--------|
 | 1ro A  | Matemática | Juana Pérez | 4           | Aula 1 |
 
-Una fila por cada combinación Grupo + Materia + Profesor. `Aula` es opcional;
-si se completa, el programa evita que dos clases usen la misma aula al mismo
-tiempo.
+Una fila por cada combinación Grupo + Materia + Profesor. `HorasSemana` es la
+cantidad de módulos semanales que necesita esa materia (no necesariamente
+"horas reloj" — depende de la duración del módulo que definas en `Config`).
+`Aula` es opcional; si se completa, el programa evita que dos clases usen la
+misma aula al mismo tiempo.
 
 ### Hoja `NoDisponibilidad` (opcional)
 
@@ -86,5 +105,5 @@ generar un cronograma con choques.
 ## Tests
 
 ```bash
-python -m unittest tests/test_solver.py -v
+python -m unittest discover -s tests -v
 ```

@@ -9,10 +9,13 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
 from .models import Assignment, Config, Slot
+from .periods import fila_orden_clave
 
 HEADER_FILL = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
 HEADER_FONT = Font(color="FFFFFF", bold=True)
 CELL_ALIGN = Alignment(horizontal="center", vertical="center", wrap_text=True)
+RECESS_FILL = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
+RECESS_FONT = Font(italic=True, bold=True, color="666666")
 
 
 def _header_map(ws: Worksheet) -> dict[str, int]:
@@ -43,20 +46,25 @@ def load_input(path: str) -> tuple[Config, list[Assignment], dict[str, set[Slot]
     headers = _header_map(ws)
     day_col = _col(headers, "dias", "días", "day", sheet="Config")
     period_col = _col(headers, "periodos", "períodos", "period", sheet="Config")
+    recess_col = _col(headers, "recreos", "recesos", required=False, sheet="Config")
 
     days: list[str] = []
     periods: list[str] = []
+    recesses: list[str] = []
     for row in ws.iter_rows(min_row=2):
         d = row[day_col - 1].value
         p = row[period_col - 1].value
+        r = row[recess_col - 1].value if recess_col else None
         if d is not None and str(d).strip():
             days.append(str(d).strip())
         if p is not None and str(p).strip():
             periods.append(str(p).strip())
+        if r is not None and str(r).strip():
+            recesses.append(str(r).strip())
     if not days or not periods:
         raise ValueError("La hoja 'Config' debe tener al menos un día y un periodo.")
 
-    config = Config(days=days, periods=periods)
+    config = Config(days=days, periods=periods, recesses=recesses)
 
     if "Asignaciones" not in wb.sheetnames:
         raise ValueError("El archivo de entrada necesita una hoja llamada 'Asignaciones'.")
@@ -145,20 +153,36 @@ def _write_grid(
         c.fill = HEADER_FILL
         c.alignment = CELL_ALIGN
 
-    for row_i, period in enumerate(config.periods, start=3):
-        c = ws.cell(row=row_i, column=1, value=period)
+    rows = sorted(
+        [(period, False) for period in config.periods]
+        + [(recess, True) for recess in config.recesses],
+        key=lambda pr: fila_orden_clave(pr[0]),
+    )
+
+    last_col = 1 + len(config.days)
+    for row_i, (label, is_recess) in enumerate(rows, start=3):
+        c = ws.cell(row=row_i, column=1, value=label)
         c.font = HEADER_FONT
         c.fill = HEADER_FILL
         c.alignment = CELL_ALIGN
-        for col_i, day in enumerate(config.days, start=2):
-            text = cell_text.get((day, period), "")
-            cell = ws.cell(row=row_i, column=col_i, value=text)
-            cell.alignment = CELL_ALIGN
+        if is_recess:
+            ws.cell(row=row_i, column=2, value="RECREO")
+            ws.merge_cells(start_row=row_i, start_column=2, end_row=row_i, end_column=last_col)
+            for col_i in range(2, last_col + 1):
+                cell = ws.cell(row=row_i, column=col_i)
+                cell.fill = RECESS_FILL
+                cell.font = RECESS_FONT
+                cell.alignment = CELL_ALIGN
+        else:
+            for col_i, day in enumerate(config.days, start=2):
+                text = cell_text.get((day, label), "")
+                cell = ws.cell(row=row_i, column=col_i, value=text)
+                cell.alignment = CELL_ALIGN
 
     ws.column_dimensions["A"].width = 16
     for col_i in range(2, 2 + len(config.days)):
         ws.column_dimensions[get_column_letter(col_i)].width = 22
-    for row_i in range(3, 3 + len(config.periods)):
+    for row_i in range(3, 3 + len(rows)):
         ws.row_dimensions[row_i].height = 34
 
 
